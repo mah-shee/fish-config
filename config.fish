@@ -10,3 +10,6 @@ eval (pyenv init - | source)
 set -x PATH $HOME/.nodebrew/current/bin $PATH
 set XDG_CONFIG_DIRS /etc/xdg
 rbenv init - | source
+set -x PATH /Users/masatoshi/git/github.com/flutter/flutter/bin $PATH
+set -x GOPATH $HOME/dev
+set -x PATH $PATH $GOPATH/bin

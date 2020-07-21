@@ -28,6 +28,7 @@
 #     set -g theme_display_vagrant yes
 #     set -g theme_display_docker_machine no
 #     set -g theme_display_k8s_context yes
+#     set -g theme_display_k8s_namespace no
 #     set -g theme_display_hg yes
 #     set -g theme_display_virtualenv no
 #     set -g theme_display_ruby no
@@ -66,6 +67,13 @@ function __bobthefish_pwd -d 'Get a normalized $PWD'
     or echo $PWD
 end
 
+# Note that for fish < 3.0 this falls back to unescaped, rather than trying to do something clever /shrug
+# After we drop support for older fishies, we can inline this without the fallback.
+function __bobthefish_escape_regex -a str -d 'A backwards-compatible `string escape --style=regex` implementation'
+    string escape --style=regex "$str" 2>/dev/null
+    or echo "$str"
+end
+
 function __bobthefish_git_branch -S -d 'Get the current git branch (or commitish)'
     set -l ref (command git symbolic-ref HEAD 2>/dev/null)
     and begin
@@ -102,7 +110,7 @@ function __bobthefish_pretty_parent -S -a child_dir -d 'Print a parent directory
 
     # Replace $HOME with ~
     set -l real_home ~
-    set -l parent_dir (string replace -r '^'"$real_home"'($|/)' '~$1' (__bobthefish_dirname $child_dir))
+    set -l parent_dir (string replace -r '^'(__bobthefish_escape_regex "$real_home")'($|/)' '~$1' (__bobthefish_dirname $child_dir))
 
     # Must check whether `$parent_dir = /` if using native dirname
     if [ -z "$parent_dir" ]
@@ -230,7 +238,7 @@ function __bobthefish_project_pwd -S -a project_root_dir -a real_pwd -d 'Print t
     set -q theme_project_dir_length
     or set -l theme_project_dir_length 0
 
-    set -l project_dir (string replace -r '^'"$project_root_dir"'($|/)' '' $real_pwd)
+    set -l project_dir (string replace -r '^'(__bobthefish_escape_regex "$project_root_dir")'($|/)' '' $real_pwd)
 
     if [ $theme_project_dir_length -eq 0 ]
         echo -n $project_dir
@@ -422,13 +430,24 @@ function __bobthefish_prompt_status -S -a last_status -d 'Display flags for a no
     and set superuser 1
 
     # Jobs display
-    if [ "$theme_display_jobs_verbose" = 'yes' ]
-        set bg_jobs (jobs -p | wc -l)
+    if set -q AUTOJUMP_SOURCED
+        # Autojump special case: check if there are jobs besides the `autojump`
+        # job, since that one is (briefly) backgrounded every time we `cd`
+        set bg_jobs (jobs -c | string match -v --regex '(Command|autojump)' | wc -l)
         [ "$bg_jobs" -eq 0 ]
         and set bg_jobs # clear it out so it doesn't show when `0`
     else
-        jobs -p >/dev/null
-        and set bg_jobs 1
+        if [ "$theme_display_jobs_verbose" = 'yes' ]
+            set bg_jobs (jobs -p | wc -l)
+            [ "$bg_jobs" -eq 0 ]
+            and set bg_jobs # clear it out so it doesn't show when `0`
+        else
+            # `jobs -p` is faster if we redirect to /dev/null, because it exits
+            # after the first match. We'll use that unless the user wants to
+            # display the actual job count
+            jobs -p >/dev/null
+            and set bg_jobs 1
+        end
     end
 
     if [ "$nonzero" -o "$superuser" -o "$bg_jobs" ]
@@ -628,7 +647,8 @@ function __bobthefish_prompt_k8s_context -S -d 'Show current Kubernetes context'
     set -l context (__bobthefish_k8s_context)
     or return
 
-    set -l namespace (__bobthefish_k8s_namespace)
+    [ "$theme_display_k8s_namespace" = 'yes' ]
+    and set -l namespace (__bobthefish_k8s_namespace)
 
     set -l segment $k8s_glyph " " $context
     [ -n "$namespace" ]
@@ -679,7 +699,8 @@ function __bobthefish_prompt_user -S -d 'Display current user and hostname'
     end
 
     if set -q display_hostname
-        if set -q display_user; or set -q display_sudo_user
+        if set -q display_user
+            or set -q display_sudo_user
             # reset colors without starting a new segment...
             # (so we can have a bold username and non-bold hostname)
             set_color normal
@@ -1052,13 +1073,13 @@ function fish_prompt -d 'bobthefish, a fish theme optimized for awesome'
     __bobthefish_prompt_status $last_status
     __bobthefish_prompt_vi
 
+    # User / hostname info
+    __bobthefish_prompt_user
+
     # Containers and VMs
     __bobthefish_prompt_vagrant
     __bobthefish_prompt_docker
     __bobthefish_prompt_k8s_context
-
-    # User / hostname info
-    __bobthefish_prompt_user
 
     # Virtual environments
     __bobthefish_prompt_desk
