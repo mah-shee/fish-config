@@ -29,3 +29,7 @@ set -x PATH $PATH $GOPATH/bin
 # setting for fzf
 set -U FZF_LEGACY_KEYBINDINGS 0
 set -U FZF_REVERSE_ISEARCH_OPTS "--reverse --height=100%"
+
+set -g fish_user_paths "/usr/local/opt/llvm/bin" $fish_user_paths
+set -gx LDFLAGS "-L/usr/local/opt/llvm/lib"
+set -gx CPPFLAGS "-I/usr/local/opt/llvm/include"
