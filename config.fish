@@ -52,3 +52,4 @@ set -gx CPPFLAGS "-I/usr/local/opt/sqlite/include"
 set -gx PKG_CONFIG_PATH "/usr/local/opt/sqlite/lib/pkgconfig"
 set -g fish_user_paths "/usr/local/opt/openssl@1.1/bin" $fish_user_paths
 set -g fish_user_paths "/usr/local/opt/llvm/bin" $fish_user_paths
+source "/usr/local/Caskroom/google-cloud-sdk/latest/google-cloud-sdk/path.fish.inc"
